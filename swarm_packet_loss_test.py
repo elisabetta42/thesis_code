@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from scipy import linalg as la
+import copy
 import matplotlib.pyplot as pl
 import numpy as np
 import numpy
@@ -8,12 +9,14 @@ import quadrotor as quad
 import quadlog
 import animation as ani
 #import pycopter_rules as rules
-import sequence_rules as rules
+import rules as rules
 import temperature_function as temperature
 from sys import exit
 #import plugin
 from group import Group
 import time as tim
+import math
+#from statistics import mean
 # Quadrotor
 m = 0.65 # Kg
 l = 0.23 # m
@@ -35,13 +38,14 @@ kw = 1/0.18   # rad/s
 # Initial conditions
 att_0 = np.array([0.0, 0.0, 0.0])
 pqr_0 = np.array([0.0, 0.0, 0.0])
-xyz1_0 = np.array([-10.0, 1.2, 0.0])
-xyz2_0 = np.array([-12.2, 6.0, 0.0])
-xyz3_0 = np.array([-13.1, 20.6, 0.0])
+xyz1_0 = np.array([1.0, 1.2, 0.0])
+xyz2_0 = np.array([2.2, 2.0, 0.0])
+xyz3_0 = np.array([-3.1, 20.6, 0.0])
 
-xyz4_0 = np.array([22.0, 8.2, 0.0])
-xyz5_0 = np.array([20.2, 9.0, 0.0])
-xyz6_0 = np.array([-21.2, 10.6, 0.0])
+xyz4_0 = np.array([12.0, 8.2, 0.0])
+xyz5_0 = np.array([10.2, 9.0, 0.0])
+xyz6_0 = np.array([-11.2, 10.6, 0.0])
+
 v_ned_0 = np.array([0.0, 0.0, 0.0])
 w_0 = np.array([0.0, 0.0, 0.0, 0.0])
 
@@ -85,7 +89,7 @@ tilde_mu = 0e-2*np.array([1, 1, 1])
 fc = form.formation_distance(2, 1, dtriang, mu, tilde_mu, Btriang, 5e-2, 5e-1)
 
 # Simulation parameters
-tf = 170
+tf = 150
 dt = 5e-2
 time = np.linspace(0, tf, tf/dt)
 it = 0
@@ -108,11 +112,12 @@ pl.close("all")
 pl.ion()
 fig = pl.figure(0)
 axis3d = fig.add_subplot(111, projection='3d')
+
 #ax= fig.add_subplot(111, projection='3d')
 #ax.set_xlim(-15, 15)
 #ax.set_ylim(-15, 15)
 #ax.cla()
-temperature.draw_grid(axis3d)
+#temperature.draw_grid(axis3d)
 
 init_area = 5
 s = 2
@@ -142,7 +147,6 @@ q4.yaw_d =  -np.pi
 q5.yaw_d =  -np.pi
 q6.yaw_d =  -np.pi
 radius=50
-
 quad_list[0].water_cargo=True
 quad_list[1].water_cargo=True
 quad_list[2].water_cargo=True
@@ -150,53 +154,70 @@ quad_list[3].temperature_sensor=True
 quad_list[4].temperature_sensor=True
 quad_list[5].temperature_sensor=True
 
-for current in quad_list:
- rules.assign_role(current)
-for current in quad_list:
- current.create_ensemble(quad_list,"name")
-
+times=[]
+result=[]
+#times.append(0)
+packets=range(0,101,10)
+complete_pac=[]
+list_of_list=[]
+average=[]
+std=[]
 for drone in quad_list:
 	drone.group.syncronize(drone,quad_list,radius)
-times=[]
-count=0
-count2=0
-count3=0
-for t in time:
-    for current in quad_list:
-                #current.group.syncronize(current,quad_list,radius)
-                current.step(dt)
-    		current.ensemble.synchronize_state(current,t,100)
-	        
+for p in range(0,11):
+ #list_of_list=list_of_list+times
+ list_of_list.append(copy.deepcopy(times))
+ #print "list of lists", list_of_list
+ #print times, "times"
+ times[:]=[] 
+ for per in range(0,11):
+  print packets[p], "percentage of packet loss"
+  q1.xyz=xyz1_0 
+  q2.xyz=xyz2_0 
+  q3.xyz=xyz3_0 
 
+  q4.xyz=xyz4_0
+  q5.xyz=xyz5_0
+  q6.xyz=xyz6_0
+  count=0
+  for t in time:  	
+    radius=25
+    completed=True
     for current in quad_list:
-                if current.stat_m.current_state.name=="s1" and current.role!="fire_locator" and count<1:
-			print "here"
-			count=count+1
-                	times.append(t)	
-                if current.stat_m.current_state.name=="s2" and current.role!="fire_fighters" and count2<1:
-			print "here"
-			count2=count2+1
-                	times.append(t)	
-    		if current.stat_m.current_state.name=="s3" and current.role!="fire_locator" and count3<1:
-			print "here"
-			count3=count3+1
-                	times.append(t)	
+	   #if t > 120:
+           #     print "spreading..........................................."
+           rules.flocking(current,packets[p])
+           #else: 
+	   #	rules.flocking(current,packets[p])
+           position=current.xyz
+       	   for other in quad_list:
+	 	if current.tag!=other.tag:
+	          neighbour=other.xyz
+	          distance=math.sqrt(pow((position[0] - neighbour[0]), 2) + pow((position[1] -neighbour[1]), 2))
+	          #print distance
+	          if distance<=radius:
+			completed=False
+                        
+			
+    if completed==True:	
+    	    count=count+1
+            
+
+    if count==1:
+        print "times added"
+	times.append(t)
+    #    if per==0:
+        if packets[p] not in complete_pac:
+        	complete_pac.append(packets[p])
+        #break;
+   
+    
+    for d in quad_list:
+    	d.step(dt)
+  
+    
     if it%frames == 0:
         axis3d.cla()
-	
-	q1_label=q1.stat_m.current_state.name+" "+str(q1.tag)+" "+str(q1.stat_m.current_state.complete)+" "+q1.role+" "+str(len(q1.var))
-	q2_label=q2.stat_m.current_state.name+" "+str(q2.tag)+" "+str(q2.stat_m.current_state.complete)+" "+q2.role+" "+str(len(q2.var))
-	q3_label=q3.stat_m.current_state.name+" "+str(q3.tag)+" "+str(q3.stat_m.current_state.complete)+" "+q3.role+" "+str(len(q3.var))
-	q4_label=q4.stat_m.current_state.name+" "+str(q4.tag)+" "+str(q4.stat_m.current_state.complete)+" "+q4.role+" "+str(len(q4.var))
-	q5_label=q5.stat_m.current_state.name+" "+str(q5.tag)+" "+str(q5.stat_m.current_state.complete)+" "+q5.role+" "+str(len(q5.var))
-	q6_label=q6.stat_m.current_state.name+" "+str(q6.tag)+" "+str(q6.stat_m.current_state.complete)+" "+q6.role+" "+str(len(q6.var))
-
-    	axis3d.text2D(0.05, 0.95,q1_label , transform=axis3d.transAxes)
-    	axis3d.text2D(0.05, 0.90,q2_label , transform=axis3d.transAxes)
-    	axis3d.text2D(0.05, 0.85,q3_label , transform=axis3d.transAxes)
-    	axis3d.text2D(0.05, 0.80,q4_label , transform=axis3d.transAxes)
-    	axis3d.text2D(0.05, 0.75,q5_label , transform=axis3d.transAxes)
-    	axis3d.text2D(0.05, 0.70,q6_label , transform=axis3d.transAxes)
 	
 
         ani.draw3d(axis3d, q1.xyz, q1.Rot_bn(), quadcolor[0])
@@ -205,7 +226,11 @@ for t in time:
 	
 	ani.draw3d(axis3d, q4.xyz, q4.Rot_bn(), quadcolor[0])
 	ani.draw3d(axis3d, q5.xyz, q5.Rot_bn(), quadcolor[0])
-	ani.draw3d(axis3d, q6.xyz, q6.Rot_bn(), quadcolor[0])       
+	ani.draw3d(axis3d, q6.xyz, q6.Rot_bn(), quadcolor[0])
+	
+	
+	
+	        
 	
 	axis3d.set_xlim(-15, 15)
         axis3d.set_ylim(-15, 15)
@@ -219,10 +244,18 @@ for t in time:
 	
         pl.pause(0.01)
         pl.draw()
+
+    it+=1
+ 
+# Stop if crash
+    #if (q1.crashed == 1):
+    #    break
+    
+    #print len(complete_pac),complete_pac
+    #print len(times),times,"time"
+#print times
 	
-	
-	
-         # Log
+ '''        # Log
     q1_log.xyz_h[it, :] = q1.xyz
     q1_log.att_h[it, :] = q1.att
     q1_log.w_h[it, :] = q1.w
@@ -275,20 +308,7 @@ for t in time:
     
     
 
-    it+=1
- 
-# Stop if crash
-    if (q1.crashed == 1):
-        break
 
-zero=[]
-zero.append(0)
-zero.append(0)
-zero.append(0)
-ten=[]
-ten.append(0)
-ten.append(10)
-ten.append(7)
 
 pl.figure(7)
 pl.xlabel('Time [s]')
@@ -299,8 +319,6 @@ pl.plot(time, q3_log.xyz_h[:, 0], label="UAV 3")
 pl.plot(time, q4_log.xyz_h[:, 0], label="UAV 4")
 pl.plot(time, q5_log.xyz_h[:, 0], label="UAV 5")
 pl.plot(time, q6_log.xyz_h[:, 0], label="UAV 6")
-pl.scatter(times,zero)
-pl.xlim(0, tf)
 pl.legend()
 
 pl.figure(8)
@@ -312,13 +330,38 @@ pl.plot(time, q3_log.xyz_h[:, 1], label="UAV 3")
 pl.plot(time, q4_log.xyz_h[:, 1], label="UAV 4")
 pl.plot(time, q5_log.xyz_h[:, 1], label="UAV 5")
 pl.plot(time, q6_log.xyz_h[:, 1], label="UAV 6")
-pl.scatter(times,ten)
-pl.xlim(0, tf)
-pl.legend()
+pl.legend()'''
 
+print "I am here"
+print list_of_list
+for ind,value in enumerate(list_of_list):
+        if len(list_of_list[ind])>=1:
+                print list_of_list[ind]
+		average.append(numpy.mean(list_of_list[ind]))
+		std.append(numpy.std(list_of_list[ind], axis=0))
+#print times
+#for i in range(1,8):
+#	print [sum(list_of_list[i:i+8]) for i in range(0, len(list_of_list), i)], "sum"
 
+		
+print average, "avg"		
+print complete_pac, "cp"
+
+pl.figure(6)
+pl.ylabel('Time [s]')
+pl.xlabel('Packets loss [percentage]')
+reverse=complete_pac[::-1]
+for i in range(len(reverse)):
+  reverse[i] -= 10
+#e=std*1;
+print reverse, "reverse"
+pl.scatter(reverse[0:len(average)],average, alpha=0.8)
+pl.plot(reverse[0:len(average)],average)
+pl.errorbar(reverse[0:len(average)],average, std, linestyle='None', marker='^')
 
 pl.pause(0)
+
+
 
 
         

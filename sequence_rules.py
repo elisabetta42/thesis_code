@@ -191,12 +191,12 @@ def tend_away_from_fire (current,per):
 	print "tend_away_from_fire" 
 	if not(current.temperature_sensor==True):
 		 current.set_xyz_ned_lya(current.xyz)
-		 return
+		 return False
 	target=numpy.array([0,0])
 	target=(target-get_coordinates(current))
-	target=(target/1)
+	target=(target/10)
 	target=normalize(target)
-	direction=(flocking(current,per)+(-1*target))
+	direction=(flocking(current,per)+(-3*target))
 	alt_d=8
 	current.set_v_2D_alt_lya(direction,-alt_d)
 	return False
@@ -204,16 +204,16 @@ def go_to_fire_location (current,per):
 	print "go_to_fire_location" 
 	if not(current.water_cargo==True):
 		 current.set_xyz_ned_lya(current.xyz)
-		 return
+		 return False
 	target=numpy.array([0,0])
 	target=(target-get_coordinates(current))
-	target=(target/1)
+	target=(target/10)
 	target=normalize(target)
 	diff=(target-get_coordinates(current))
-	direction=(flocking(current,per)+target)
+	direction=(flocking(current,per)+3*target)
 	alt_d=8
 	current.set_v_2D_alt_lya(direction,-alt_d)
-	if ((diff[0]<=1)and(diff[1]<=1)):
+	if ((diff[0]<=0)and(diff[1]<=0)):
 		return True
 	return False
 def turn_down_fire (current):
